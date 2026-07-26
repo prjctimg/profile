@@ -1,0 +1,93 @@
+name: Update README
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version to use"
+        required: false
+        type: string
+        default: "3.11"
+      script-path:
+        description: "Path to the update script"
+        required: false
+        type: string
+        default: ".github/scripts/update.py"
+      script-output:
+        description: "How the script outputs: 'stdout' (capture to temp file) or 'direct' (writes README in-place)"
+        required: false
+        type: string
+        default: "stdout"
+      readme-path:
+        description: "Path to the README file"
+        required: false
+        type: string
+        default: "README.md"
+      commit-message:
+        description: "Commit message"
+        required: true
+        type: string
+      git-user-name:
+        description: "Git user.name for commits"
+        required: true
+        type: string
+      git-user-email:
+        description: "Git user.email for commits"
+        required: true
+        type: string
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Run update script (stdout mode)
+        if: inputs.script-output == 'stdout'
+        run: python ${{ inputs.script-path }} > new_readme.md
+
+      - name: Run update script (direct mode)
+        if: inputs.script-output == 'direct'
+        run: python ${{ inputs.script-path }}
+
+      - name: Check if README changed
+        id: changed
+        run: |
+          if [ "${{ inputs.script-output }}" = "stdout" ]; then
+            if [ -f "${{ inputs.readme-path }}" ]; then
+              if diff -q "${{ inputs.readme-path }}" new_readme.md > /dev/null 2>&1; then
+                echo "changed=false" >> "$GITHUB_OUTPUT"
+              else
+                echo "changed=true" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            if git diff --quiet "${{ inputs.readme-path }}" 2>/dev/null; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Update README
+        if: steps.changed.outputs.changed == 'true' && inputs.script-output == 'stdout'
+        run: mv new_readme.md ${{ inputs.readme-path }}
+
+      - name: Commit and push
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          git config --local user.name "${{ inputs.git-user-name }}"
+          git config --local user.email "${{ inputs.git-user-email }}"
+          git add ${{ inputs.readme-path }}
+          git diff --staged --quiet || git commit -m "${{ inputs.commit-message }}"
+          git push
