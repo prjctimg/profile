@@ -22,26 +22,14 @@ def api_request(url, token, method="GET"):
     req.add_header("X-GitHub-Api-Version", "2022-11-28")
     try:
         with urllib.request.urlopen(req) as resp:
-            return json.loads(resp.read()), resp.status
+            body = resp.read()
+            return json.loads(body) if body else None, resp.status
     except urllib.error.HTTPError as e:
         return None, e.code
 
 
 def get_following(token):
     """Get list of users the authenticated user follows."""
-    following = []
-    url = f"{API}/user/following?per_page=100"
-    while url:
-        data, status = api_request(url, token)
-        if status != 200 or not data:
-            break
-        following.extend([u["login"] for u in data])
-        # Check for next page via Link header — fall back to manual pagination
-        url = None
-        for header_val in []:
-            pass
-        # Simple: just use page param
-    # Re-do with simple pagination
     following = []
     page = 1
     while True:
