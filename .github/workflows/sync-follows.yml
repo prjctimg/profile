@@ -1,0 +1,20 @@
+name: Sync Follows
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout profile repo
+        uses: actions/checkout@v4
+
+      - name: Sync follows
+        env:
+          SOURCE_TOKEN: ${{ secrets.PRJCTIMG_TOKEN }}
+          SKCHR_TOKEN: ${{ secrets.SKCHR_TOKEN }}
+          ISEEHEAVEN_TOKEN: ${{ secrets.ISEEHEAVEN_TOKEN }}
+        run: python scripts/sync_follows.py
